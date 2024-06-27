@@ -8,6 +8,8 @@
 
 'use strict';
 
+const config = require('./config.js');
+
 const { exec } = require('child_process');
 
 module.exports = class Job {
@@ -45,7 +47,7 @@ module.exports = class Job {
     this.#executionStatus = 'in progress';
 
     function sendUpdate() {
-      fetch(`http://${this.#info.config.originIP}:8080/pushupdate/`, {
+      fetch(`http://${this.#info.config.originAddress}/pushupdate/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -55,7 +57,11 @@ module.exports = class Job {
       });
     }
 
-    exec(`bash -c "${this.#command}"`, (error, stdout, stderr) => {
+    const options = {
+      cwd: config.serviceFilesPath + this.#info.id + '/'
+    };
+
+    exec(`bash -c "${this.#command}"`, options, (error, stdout, stderr) => {
       if (error) {
         console.error(`Error: ${error.message}`);
         this.#executionStatus = 'execution failed';

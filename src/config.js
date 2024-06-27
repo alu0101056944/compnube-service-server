@@ -4,6 +4,6 @@
  */
 
 module.exports = {
-  "serviceFilesPath": "servicesFiles/",
+  "serviceFilesPath": "serviceFiles/",
   "serverBaseURL": "http://localhost:8080/",
 }
