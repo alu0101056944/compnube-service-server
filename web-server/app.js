@@ -15,11 +15,9 @@
 
 const express = require('express');
 const path = require('path');
-const { fileURLToPath } = require('url');
 const process = require('process');
-const { readFile, writeFile } = require('fs/promises');
-const fs = require('fs/promises');
-const { readdir, rm, mkdirSync } = require('fs');
+const { readdir, rm, mkdir, access } = require('fs/promises');
+const { mkdirSync } = require('fs');
 
 const cors = require('cors');
 const multer = require('multer');
@@ -69,12 +67,12 @@ function execute() {
 
     // create the serviceFiles folder
     const PATH_TO_SERVICE_FILES = config.serviceFilesPath + info.id;
-    await fs.mkdir(PATH_TO_SERVICE_FILES, { recursive: true });
+    await mkdir(PATH_TO_SERVICE_FILES, { recursive: true });
 
     // create the output subfolder
     const PATH_TO_SERVICE_FILES_OUTPUT = config.serviceFilesPath + info.id +
         '/output/';
-    await fs.mkdir(PATH_TO_SERVICE_FILES_OUTPUT, { recursive: true });
+    await mkdir(PATH_TO_SERVICE_FILES_OUTPUT, { recursive: true });
     
     const job = new Job(info);
     queue.addToWaitingForFiles(job, info.id);
@@ -91,75 +89,71 @@ function execute() {
 
   application.post('/deletefiles', async (request, response) => {
     const info = request.body;
-    rm(config.serviceFilesPath + info.id, { recursive: true }, (err) => {
-        if (err) {
-            console.error(`Error deleting folder: ${err}`);
-            response.send('Could not delete  files on host.');
-        } else {
-            console.log(`Folder ${folderPath} is deleted successfully.`);
-            response.send('Deleted both input files and output files from host.');
+    const FOLDER_PATH = config.serviceFilesPath + info.id;
+
+    console.log('/deletefiles called.');
+
+    async function pathExists(path) {
+      try {
+        await access(path);
+        return true;
+      } catch (err) {
+        if (err.code === 'ENOENT') {
+          return false;
         }
-    });
-  });
-
-  application.get('/availableoutputfiles', async (request, response) => {
-    // read the output dir and check if non empty
-    readdir(config.serviceFilesPath + request.body.id + '/output/', (error, files) => {
-      if (error) {
-        console.error('Cannot read output files. Error occurred while ' +
-            'reading the folder:', error);
-        response.json({
-          filesAvailable: 'false',
-          id: request.body.id
-        });
-      } else {
-        response.json({
-          filesAvailable: files.length > 0 ? 'true' : 'false',
-          id: request.body.id
-        });
+        throw err;
       }
-    });
-  });
+    }
 
-  application.get('/downloadoutput', async (request, response) => {
+    const PATH_EXISTS = await pathExists(FOLDER_PATH);
+    if (PATH_EXISTS) {
+      try {
+          await rm(FOLDER_PATH, { recursive: true });
+          console.log(`Folder ${FOLDER_PATH} has been deleted successfully.`);
+          response.send('Deleted both input files and output files from host.');
+      } catch (err) {
+          console.error(`Error deleting folder: ${err}`);
+          response.send('Could not delete files on host.');
+      }
+    }
+  });
+  
+  application.post('/downloadoutput', async (request, response) => {
     const filesToZIP = [];
 
+    console.log('/downloadoutput called.');
+
     // attach the output files
-    readdir(config.serviceFilesPath + request.body.id + '/output/', (error, files) => {
-      if (error) {
+    const OUTPUT_PATH = config.serviceFilesPath + request.body.id + '/output/';
+    try {
+      const allFile = await readdir(OUTPUT_PATH)
+      for (const filename of allFile) {
+        const FILE_PATH =
+            config.serviceFilesPath + request.body.id + '/output/' +
+                filename;
+        filesToZIP.push({ name: filename, path: FILE_PATH, })
+      }
+      response.setHeader('Content-Disposition',
+          `attachment; filename=job_${request.body.id}_output.zip`);
+    } catch (error) {
         console.error('Cannot read output files. Error occurred while ' +
             'reading the folder:', error);
         response.status(500).send('Failed to read output files path.');
-      } else {
-        files.forEach(file => {
-          const FILE_PATH =
-              config.serviceFilesPath + request.body.id + '/output/' + `${file}`;
-          readFile(FILE_PATH, null, (err, data) => {
-            if (err) {
-              console.log('Could not read an output file of the service run: ' +
-                  FILE_PATH);
-              return;
-            }
-            filesToZIP.push({ name: file, path: FILE_PATH, })
-          });
-        });
-      }
-    });
+    }
 
-    response.setHeader('Content-Disposition',
-          `attachment; filename=job_${request.body.id}_output.zip`);
     const archive = archiver('zip', {
       zlib: { level: 9 } // Set the compression level
     });
     archive.on('error', (err) => {
       console.error('failed to compress output files for service run' +
           request.body.id, err);
+      response.status(500).send('Failed to compress to zip the output files.');
     });
     archive.pipe(response);
     filesToZIP.forEach(file => {
         archive.file(file.path, { name: file.name });
     });
-    archive.finalize();
+    await archive.finalize();
   });
 }
 
