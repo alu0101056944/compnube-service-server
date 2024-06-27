@@ -8,6 +8,8 @@
 
 'use strict';
 
+const { writeFileSync } = require('fs');
+
 const config = require('./config.js');
 
 const { exec } = require('child_process');
@@ -16,7 +18,6 @@ module.exports = class Job {
   /** @constant @private **/ 
   #info = undefined;
   #command = undefined;
-  #next = undefined;
   
   /** @private  */
   #executionStatus = undefined;
@@ -25,13 +26,10 @@ module.exports = class Job {
    * 
    * @param {object} info Contiene la configuración del servicio, la id y
    *    los argumentos
-   * @param {function} next what to call when the queue should move to the
-   *    next job.
    */
-  constructor(info, next) {
+  constructor(info) {
     this.#info = info;
-    this.#executionStatus = 'pending';
-    this.#next = next;
+    this.#executionStatus = 'execution pending';
 
     let cli = this.#info.config.cli;
     for (const cliArgName of Object.getOwnPropertyNames(this.#info.cliArgs)) {
@@ -43,44 +41,62 @@ module.exports = class Job {
     this.#command = cli;
   }
 
-  execute() {
-    this.#executionStatus = 'in progress';
+  /**
+   * 
+   * @param {function} finishedCallback Used by the job queue to know when a
+   *    service has finished execution.
+   */
+  async execute(finishedCallback) {
+    this.#executionStatus = 'Executing';
 
-    function sendUpdate() {
-      fetch(`http://${this.#info.config.originAddress}/pushupdate/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ executionState: this.#executionStatus,
-          id: this.#info.id }),
-      });
-    }
-
-    const options = {
-      cwd: config.serviceFilesPath + this.#info.id + '/'
-    };
-
-    exec(`bash -c "${this.#command}"`, options, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error: ${error.message}`);
-        this.#executionStatus = 'execution failed';
-        sendUpdate();
-        this.#next();
-        return;
-      }
-      if (stderr) {
-        console.error(`stderr: ${stderr}`);
-        this.#executionStatus = 'execution failed';
-        sendUpdate();
-        this.#next();
-        return;
-      }
-      console.log(`stdout: ${stdout}`);
-      this.#executionStatus = 'Finished execution sucessfully';
-      sendUpdate();
-      this.#next();
+    // for temporarily testing the downloading stuff from the client.
+    writeFileSync(`${config.serviceFilesPath}${this.#info.id}/output/test.txt`,
+        'xyzz');
+    await fetch(`http://${this.#info.config.originAddress}/pushupdate/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ executionState: 'Finished execution sucessfully',
+        id: this.#info.id }),
     });
+    finishedCallback(this.#info.id);
+
+    // function sendUpdate() {
+    //   fetch(`http://${this.#info.config.originAddress}/pushupdate/`, {
+    //     method: 'POST',
+    //     headers: {
+    //       'Content-Type': 'application/json'
+    //     },
+    //     body: JSON.stringify({ executionState: this.#executionStatus,
+    //       id: this.#info.id }),
+    //   });
+    // }
+
+    // const options = {
+    //   cwd: config.serviceFilesPath + this.#info.id + '/'
+    // };
+
+    // exec(`bash -c "${this.#command}"`, options, (error, stdout, stderr) => {
+    //   if (error) {
+    //     console.error(`Error: ${error.message}`);
+    //     this.#executionStatus = 'execution failed';
+    //     sendUpdate();
+    //     this.#next();
+    //     return;
+    //   }
+    //   if (stderr) {
+    //     console.error(`stderr: ${stderr}`);
+    //     this.#executionStatus = 'execution failed';
+    //     sendUpdate();
+    //     this.#next();
+    //     return;
+    //   }
+    //   console.log(`stdout: ${stdout}`);
+    //   this.#executionStatus = 'Finished execution sucessfully';
+    //   sendUpdate();
+    //   this.#next();
+    // });
   }
 
   getExecutionStatus() {

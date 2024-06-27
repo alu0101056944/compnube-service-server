@@ -76,23 +76,18 @@ function execute() {
         '/output/';
     await fs.mkdir(PATH_TO_SERVICE_FILES_OUTPUT, { recursive: true });
     
-    function next() {
-      console.log('Next job execution started.');
-      queue.next();
-    }
-    const job = new Job(info, next);
-    queue.add(job); // dont execute because I need to download the files first.
+    const job = new Job(info);
+    queue.addToWaitingForFiles(job, info.id);
 
     response.send('OK');
   });
 
-  application.post('/pushinputfiles',
-        upload.array('files', 20), async (request, response) => {
-    // TODO: start execution of the job
-    // TODO: add a temporal place to put the jobs that are pending the input files.
-    // TODO: then start the execution (maybe add to the queue, make the queue an internal loop
-    response.send(`File(s) uploaded successfully!`);
-  });
+  application.post('/pushinputfiles', upload.array('files', 20),
+      async (request, response) => {
+        const id = request.headers['x-service-id'];
+        queue.start(id);
+        response.send(`File(s) uploaded successfully! Execution starts now.`);
+      });
 
   application.post('/deletefiles', async (request, response) => {
     const info = request.body;
