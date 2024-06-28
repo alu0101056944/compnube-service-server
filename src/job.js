@@ -39,6 +39,8 @@ module.exports = class Job {
           Object.values(this.#info.args).join(' ') + ' ');
     cli = cli.replace('{program}', this.#info.config.binaryName);
     this.#command = cli;
+
+    console.log('Command to execute: ' + this.#command);
   }
 
   /**
@@ -49,54 +51,41 @@ module.exports = class Job {
   async execute(finishedCallback) {
     this.#executionStatus = 'Executing';
 
-    // for temporarily testing the downloading stuff from the client.
-    writeFileSync(`${config.serviceFilesPath}${this.#info.id}/output/test.txt`,
-        'xyzz');
-    await fetch(`http://${this.#info.config.originAddress}/pushupdate/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ executionState: 'Finished execution sucessfully',
-        id: this.#info.id }),
+    function sendUpdate() {
+      fetch(`http://${this.#info.config.originAddress}/pushupdate/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ executionState: this.#executionStatus,
+          id: this.#info.id }),
+      });
+    }
+
+    const options = {
+      cwd: config.serviceFilesPath + this.#info.id + '/'
+    };
+
+    exec(`bash -c "${this.#command}"`, options, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error: ${error.message}`);
+        this.#executionStatus = 'execution failed';
+        sendUpdate();
+        finishedCallback(this.#info.id);
+        return;
+      }
+      if (stderr) {
+        console.error(`stderr: ${stderr}`);
+        this.#executionStatus = 'execution failed';
+        sendUpdate();
+        finishedCallback(this.#info.id);
+        return;
+      }
+      console.log(`stdout: ${stdout}`);
+      this.#executionStatus = 'Finished execution sucessfully';
+      sendUpdate();
+      finishedCallback(this.#info.id);
     });
-    finishedCallback(this.#info.id);
-
-    // function sendUpdate() {
-    //   fetch(`http://${this.#info.config.originAddress}/pushupdate/`, {
-    //     method: 'POST',
-    //     headers: {
-    //       'Content-Type': 'application/json'
-    //     },
-    //     body: JSON.stringify({ executionState: this.#executionStatus,
-    //       id: this.#info.id }),
-    //   });
-    // }
-
-    // const options = {
-    //   cwd: config.serviceFilesPath + this.#info.id + '/'
-    // };
-
-    // exec(`bash -c "${this.#command}"`, options, (error, stdout, stderr) => {
-    //   if (error) {
-    //     console.error(`Error: ${error.message}`);
-    //     this.#executionStatus = 'execution failed';
-    //     sendUpdate();
-    //     this.#next();
-    //     return;
-    //   }
-    //   if (stderr) {
-    //     console.error(`stderr: ${stderr}`);
-    //     this.#executionStatus = 'execution failed';
-    //     sendUpdate();
-    //     this.#next();
-    //     return;
-    //   }
-    //   console.log(`stdout: ${stdout}`);
-    //   this.#executionStatus = 'Finished execution sucessfully';
-    //   sendUpdate();
-    //   this.#next();
-    // });
   }
 
   getExecutionStatus() {
