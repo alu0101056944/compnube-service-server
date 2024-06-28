@@ -72,11 +72,6 @@ function execute() {
     const PATH_TO_SERVICE_FILES = config.serviceFilesPath + info.id;
     await mkdir(PATH_TO_SERVICE_FILES, { recursive: true });
 
-    // create the output subfolder
-    const PATH_TO_SERVICE_FILES_OUTPUT = config.serviceFilesPath + info.id +
-        '/output/';
-    await mkdir(PATH_TO_SERVICE_FILES_OUTPUT, { recursive: true });
-    
     const job = new Job(info);
     queue.addToWaitingForFiles(job, info.id);
 
