@@ -35,9 +35,9 @@ module.exports = class Job {
     for (const cliArgName of Object.getOwnPropertyNames(this.#info.cliArgs)) {
       cli = cli.replace(`<${cliArgName}>`, this.#info.cliArgs[cliArgName]);
     }
-    cli = cli.replace('{program}', './{program} ' +
+    cli = cli.replace('{binary}', './{binary} ' +
           Object.values(this.#info.args).join(' ') + ' ');
-    cli = cli.replace('{program}', this.#info.config.binaryName);
+    cli = cli.replace('{binary}', this.#info.config.binaryName);
     this.#command = cli;
 
     console.log('Command to execute: ' + this.#command);
