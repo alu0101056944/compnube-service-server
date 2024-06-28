@@ -16,7 +16,7 @@
 const express = require('express');
 const path = require('path');
 const process = require('process');
-const { readdir, rm, mkdir, access } = require('fs/promises');
+const { readdir, rm, mkdir, access, readFile } = require('fs/promises');
 const { mkdirSync } = require('fs');
 
 const cors = require('cors');
@@ -37,7 +37,10 @@ function execute() {
   application.set('port', 8081);
 
   const PATH_TO_SRC = path.join(__dirname, '../src');
+  const PATH_TO_SERVICE_INPUT =
+      path.join(__dirname, '../serviceFiles/');
   application.use(express.static(PATH_TO_SRC));
+  application.use(express.static(PATH_TO_SERVICE_INPUT));
   application.use(express.json());
   application.use(cors());
 
@@ -118,23 +121,23 @@ function execute() {
     }
   });
   
-  application.post('/downloadoutput', async (request, response) => {
-    const filesToZIP = [];
-
+  application.get('/downloadoutput', async (request, response) => {
     console.log('/downloadoutput called.');
-
+    
     // attach the output files
-    const OUTPUT_PATH = config.serviceFilesPath + request.body.id + '/output/';
+    const filesToZIP = [];
+    const OUTPUT_PATH = config.serviceFilesPath +
+        request.headers['x-service-id'] + '/output/';
     try {
-      const allFile = await readdir(OUTPUT_PATH)
+      const allFile = await readdir(OUTPUT_PATH);
       for (const filename of allFile) {
         const FILE_PATH =
-            config.serviceFilesPath + request.body.id + '/output/' +
-                filename;
-        filesToZIP.push({ name: filename, path: FILE_PATH, })
+            config.serviceFilesPath +
+              request.headers['x-service-id'] + '/output/' + filename;
+        const FILE_CONTENT = await readFile(FILE_PATH);
+        filesToZIP.push({ fileContent: FILE_CONTENT, name: filename });
       }
-      response.setHeader('Content-Disposition',
-          `attachment; filename=job_${request.body.id}_output.zip`);
+      response.attachment(`${request.headers['x-service-id']}.zip`);
     } catch (error) {
         console.error('Cannot read output files. Error occurred while ' +
             'reading the folder:', error);
@@ -146,12 +149,28 @@ function execute() {
     });
     archive.on('error', (err) => {
       console.error('failed to compress output files for service run' +
-          request.body.id, err);
+          request.headers['x-service-id'], err);
       response.status(500).send('Failed to compress to zip the output files.');
     });
+    archive.on('warning', function(err) {
+      if (err.code === 'ENOENT') {
+        console.log('Warning: ' + err);
+      } else {
+        // throw error
+        throw err;
+      }
+    });
+    archive.on('end', function() {
+      console.log('Data has been drained');
+    });
+    archive.on('close', function() {
+      console.log(archive.pointer() + ' total bytes');
+      console.log('archiver has been finalized and the output file descriptor has closed.');
+    });
+    
     archive.pipe(response);
     filesToZIP.forEach(file => {
-        archive.file(file.path, { name: file.name });
+      archive.append(file.fileContent, { name: file.name });
     });
     await archive.finalize();
   });
