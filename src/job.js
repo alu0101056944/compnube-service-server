@@ -71,7 +71,7 @@ module.exports = class Job {
     }
 
     const options = {
-      cwd: config.serviceFilesPath + this.#info.id + '/'
+      cwd: config.serviceFilesPath + this.#info.id + '/output/'
     };
 
     exec(`bash -c "${this.#command}"`, options, (error, stdout, stderr) => {
