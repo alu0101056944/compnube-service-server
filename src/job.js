@@ -89,7 +89,7 @@ module.exports = class Job {
         finishedCallback(this.#info.id);
         return;
       }
-      console.log(`stdout: ${stdout}`);
+      console.log(`stdout: \n${stdout}`);
       this.#executionStatus = 'Finished execution sucessfully';
       sendUpdate();
       finishedCallback(this.#info.id);
