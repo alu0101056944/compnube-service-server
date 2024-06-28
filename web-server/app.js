@@ -127,7 +127,7 @@ function execute() {
     // attach the output files
     const filesToZIP = [];
     const OUTPUT_PATH = config.serviceFilesPath +
-        request.headers['x-service-id'] + '/';
+        request.headers['x-service-id'];
     try {
       const allFile = await readdir(OUTPUT_PATH);
       for (const filename of allFile) {
