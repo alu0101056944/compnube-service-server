@@ -134,6 +134,7 @@ function execute() {
         const FILE_PATH =
             config.serviceFilesPath +
               request.headers['x-service-id'] + '/' + filename;
+        console.log(FILE_PATH);
         const FILE_CONTENT = await readFile(FILE_PATH);
         filesToZIP.push({ fileContent: FILE_CONTENT, name: filename });
       }
