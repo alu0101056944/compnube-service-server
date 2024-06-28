@@ -8,7 +8,7 @@
 
 'use strict';
 
-const { writeFileSync } = require('fs');
+const { chmod } = require('fs/promises');
 
 const config = require('./config.js');
 
@@ -50,6 +50,14 @@ module.exports = class Job {
    */
   async execute(finishedCallback) {
     this.#executionStatus = 'Executing';
+
+    const EXECUTABLE_PATH =
+        `serviceFiles/${this.#info.id}/${this.#info.config.binaryName}`;
+    try {
+      await chmod(EXECUTABLE_PATH, '755');
+    } catch (error) {
+      console.error('Could not give the binary file executable permissions.');
+    }
 
     const sendUpdate = () => {
       fetch(`http://${this.#info.config.originAddress}/pushupdate/`, {
