@@ -51,7 +51,7 @@ module.exports = class Job {
   async execute(finishedCallback) {
     this.#executionStatus = 'Executing';
 
-    function sendUpdate() {
+    const sendUpdate = () => {
       fetch(`http://${this.#info.config.originAddress}/pushupdate/`, {
         method: 'POST',
         headers: {
