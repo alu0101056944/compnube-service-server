@@ -90,6 +90,7 @@ function execute() {
           await Promise.all(files.map(file => 
             access(path.join(PATH, file.filename), constants.F_OK)
           ));
+          console.log('File transfers for ' + id + ' finished.')
           next();
         } catch (error) {
           console.error('Error ensuring all files are saved:', error);
@@ -97,10 +98,9 @@ function execute() {
         }
       },
       async (request, response) => {
-        const id = request.headers['x-service-id'];
-        console.log('req.files: ' , request.files);
-        queue.start(id);
         response.send(`File(s) uploaded successfully! Execution starts now.`);
+        const id = request.headers['x-service-id'];
+        queue.start(id);
       });
 
   application.post('/deletefiles', async (request, response) => {
