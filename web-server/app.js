@@ -49,7 +49,9 @@ function execute() {
   // setup file storage.
   const storage = multer.diskStorage({
     destination: (request, file, cb) => {
-      const PATH = config.serviceFilesPath + request.headers['x-service-id'];
+      const ID = request.headers['x-service-id'];
+      const PATH = config.serviceFilesPath + ID;
+      console.log('Created ' + PATH + ' path for ' + ID + '.');
       mkdirSync(PATH, { recursive: true });
       cb(null, PATH);
     },
@@ -84,7 +86,6 @@ function execute() {
         const files = request.files;
         const id = request.headers['x-service-id'];
         const PATH = path.join(config.serviceFilesPath, id);
-      
         try {
           // Wait for all files to be accessible
           await Promise.all(files.map(file => 
@@ -98,8 +99,9 @@ function execute() {
         }
       },
       async (request, response) => {
-        response.send(`File(s) uploaded successfully! Execution starts now.`);
         const id = request.headers['x-service-id'];
+        response.send('File(s) uploaded successfully for ' + id +
+            '! Execution starts now.');
         queue.start(id);
       });
 
