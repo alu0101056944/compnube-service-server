@@ -1,1 +1,0 @@
-Write-Host "Sum of 2 + 2 is 4"
