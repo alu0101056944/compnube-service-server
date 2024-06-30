@@ -213,15 +213,15 @@ async function execute() {
     }
   });
 
-  application.post('/executionstatecheck', async (request, response) => {
-    const allIdPotentiallyIncorrect = request.body.ids;
-    const allActuallyIncorrectId = [];
-    for (const idPotentiallyIncorrect of allIdPotentiallyIncorrect) {
-      if (!idToJob[idPotentiallyIncorrect]) {
-        allActuallyIncorrectId.push(idPotentiallyIncorrect);
+  application.post('/alivestatecheck', async (request, response) => {
+    const allIdPotentiallyDead = request.body.ids;
+    const allActuallyDeadId = [];
+    for (const idPotentiallyDead of allIdPotentiallyDead) {
+      if (!idToJob[idPotentiallyDead]) {
+        allActuallyDeadId.push(idPotentiallyDead);
       }
     }
-    response.json({ incorrectIds: allActuallyIncorrectId });
+    response.json({ allDeadId: allActuallyDeadId });
   });
 }
 
