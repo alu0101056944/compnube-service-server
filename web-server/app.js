@@ -75,15 +75,6 @@ async function execute() {
     const PATH_TO_SERVICE_FILES = config.serviceFilesPath + info.id;
     await mkdir(PATH_TO_SERVICE_FILES, { recursive: true });
 
-    JOBS_EXECUTED = await readFile('./src/jobs_executed.json', 'utf8');
-    jobsExecuted = JSON.parse(JOBS_EXECUTED);
-    jobsExecuted.runs.push({
-      id: info.id,
-      originAddress: info.config.originAddress
-    });
-    await writeFile('./src/jobs_executedd.json',
-        JSON.stringify(jobsExecuted, null, 2))
-
     const job = new Job(info);
     idToJob[info.id] = job;
     queue.addToWaitingForFiles(job, info.id);
