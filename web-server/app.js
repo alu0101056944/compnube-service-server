@@ -16,7 +16,7 @@
 const express = require('express');
 const path = require('path');
 const process = require('process');
-const { readdir, rm, mkdir, access, readFile } = require('fs/promises');
+const { readdir, rm, mkdir, access, readFile, writeFile } = require('fs/promises');
 const { mkdirSync, constants } = require('fs');
 
 const cors = require('cors');
@@ -31,7 +31,7 @@ const config = require('../src/config.js');
 /**
  * @summary Configure and run the webserver.
  */
-function execute() {
+async function execute() {
   const application = express();
 
   application.set('port', 8081);
@@ -43,6 +43,25 @@ function execute() {
   application.use(express.static(PATH_TO_SERVICE_INPUT));
   application.use(express.json());
   application.use(cors());
+
+  // tell the origins to check pending execution statuses in case the last
+  // session ended in crash.
+  JOBS_EXECUTED = await readFile('./src/jobs_executed.json', 'utf8');
+  jobsExecuted = JSON.parse(JOBS_EXECUTED);
+  originAddressToRuns = {}
+  for (const run of jobsExecuted.runs) {
+    originAddressToRuns[run.originAddress] ??= [];
+    originAddressToRuns[run.originAddress].push(run.id);
+  }
+  for (const originAddress of Object.getOwnPropertyNames(originAddressToRuns)) {
+    await fetch(`http://${originAddress}/executionstatecheck`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(originAddressToRuns[originAddress])
+    });
+  }
 
   const queue = new Queue();
   const idToJob = {};
@@ -74,6 +93,15 @@ function execute() {
     // create the serviceFiles folder
     const PATH_TO_SERVICE_FILES = config.serviceFilesPath + info.id;
     await mkdir(PATH_TO_SERVICE_FILES, { recursive: true });
+
+    JOBS_EXECUTED = await readFile('./src/jobs_executed.json', 'utf8');
+    jobsExecuted = JSON.parse(JOBS_EXECUTED);
+    jobsExecuted.runs.push({
+      id: info.id,
+      originAddress: info.config.originAddress
+    });
+    await writeFile('./src/jobs_executedd.json',
+        JSON.stringify(jobsExecuted, null, 2))
 
     const job = new Job(info);
     idToJob[info.id] = job;
@@ -195,6 +223,8 @@ function execute() {
 
   application.post('/terminaterun', async (request, response) => {
     const ID = request.body.id;
+    console.log('id: ' + request.body.id);
+    console.log(idToJob);
     const job = idToJob[ID];
     console.log('Kill request for ' + ID + ' applied.');
     try {

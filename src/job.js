@@ -22,7 +22,7 @@ module.exports = class Job {
   /** @private  */
   #executionStatus = undefined;
   #childProcess = undefined;
-  #hasReceivedTerminateRequest = undefined;
+  #timesCalledForTerminate = undefined;
 
   /**
    * 
@@ -33,7 +33,7 @@ module.exports = class Job {
     this.#info = info;
     this.#childProcess = null;
     this.#executionStatus = 'execution pending';
-    this.#hasReceivedTerminateRequest = false;
+    this.#timesCalledForTerminate = 0;
 
     let cli = this.#info.config.cli;
     for (const cliArgName of Object.getOwnPropertyNames(this.#info.cliArgs)) {
@@ -93,14 +93,14 @@ module.exports = class Job {
   }
 
   async kill() {
-    this.#hasReceivedTerminateRequest = true;
+    ++this.#timesCalledForTerminate;
     return new Promise((resolve, reject) => {
       if (!this.#executionStatus === 'Executing' || !this.#childProcess) {
         reject(new Error('No job process to kill or not in execution.'));
         return;
       }
-      if (this.#hasReceivedTerminateRequest) {
-        reject(new Error('Already sent reqeust to kill process ' + this.#info.id + '.'));
+      if (this.#timesCalledForTerminate > 1) {
+        reject(new Error('Already sent request to kill process ' + this.#info.id + '.'));
         return;
       }
   
