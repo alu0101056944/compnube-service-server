@@ -21,6 +21,8 @@ module.exports = class Job {
   
   /** @private  */
   #executionStatus = undefined;
+  #childProcess = undefined;
+  #hasReceivedTerminateRequest = undefined;
 
   /**
    * 
@@ -29,7 +31,9 @@ module.exports = class Job {
    */
   constructor(info) {
     this.#info = info;
+    this.#childProcess = null;
     this.#executionStatus = 'execution pending';
+    this.#hasReceivedTerminateRequest = false;
 
     let cli = this.#info.config.cli;
     for (const cliArgName of Object.getOwnPropertyNames(this.#info.cliArgs)) {
@@ -59,40 +63,67 @@ module.exports = class Job {
       console.error('Could not give the binary file executable permissions.');
     }
 
-    const sendUpdate = () => {
-      fetch(`http://${this.#info.config.originAddress}/pushupdate/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ executionState: this.#executionStatus,
-          id: this.#info.id }),
-      });
-    }
-
     const options = {
       cwd: config.serviceFilesPath + this.#info.id + '/'
     };
 
-    exec(`bash -c "${this.#command}"`, options, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error: ${error.message}`);
-        this.#executionStatus = 'execution failed';
-        sendUpdate();
-        finishedCallback(this.#info.id);
+    console.log('Execution of ' + this.#info.id + ' started.');
+    this.#childProcess = exec(`bash -c "${this.#command}"`, options,
+        (error, stdout, stderr) => {
+          if (error) {
+            console.error(`Error: ${error.message}`);
+            this.#executionStatus = 'execution failed';
+            this.#sendUpdate();
+            finishedCallback(this.#info.id);
+            return;
+          }
+          if (stderr) {
+            console.error(`stderr: ${stderr}`);
+            this.#executionStatus = 'execution failed';
+            this.#sendUpdate();
+            finishedCallback(this.#info.id);
+            return;
+          }
+          console.log(`stdout: \n${stdout}`);
+          this.#executionStatus = 'Finished execution sucessfully';
+          this.#sendUpdate();
+          finishedCallback(this.#info.id);
+        });
+  }
+
+  async kill() {
+    this.#hasReceivedTerminateRequest = true;
+    return new Promise((resolve, reject) => {
+      if (!this.#executionStatus === 'Executing' || !this.#childProcess) {
+        reject(new Error('No job process to kill or not in execution.'));
         return;
       }
-      if (stderr) {
-        console.error(`stderr: ${stderr}`);
-        this.#executionStatus = 'execution failed';
-        sendUpdate();
-        finishedCallback(this.#info.id);
+      if (this.#hasReceivedTerminateRequest) {
+        reject(new Error('Already sent reqeust to kill process ' + this.#info.id + '.'));
         return;
       }
-      console.log(`stdout: \n${stdout}`);
-      this.#executionStatus = 'Finished execution sucessfully';
-      sendUpdate();
-      finishedCallback(this.#info.id);
+  
+      this.#childProcess.on('close', (code, signal) => {
+        console.log(`Killed service run ${this.#info.id} with code ${code} ` +
+            `and signal ${signal}.`);
+        this.#executionStatus = 'Terminated by user';
+        this.#sendUpdate()
+        resolve();
+      });
+  
+      this.#childProcess.kill();
+    });
+  }
+
+  // auxiliar method
+  async #sendUpdate() {
+    fetch(`http://${this.#info.config.originAddress}/pushupdate/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ executionState: this.#executionStatus,
+        id: this.#info.id }),
     });
   }
 

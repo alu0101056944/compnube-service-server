@@ -45,6 +45,7 @@ function execute() {
   application.use(cors());
 
   const queue = new Queue();
+  const idToJob = {};
 
   // setup file storage.
   const storage = multer.diskStorage({
@@ -75,6 +76,7 @@ function execute() {
     await mkdir(PATH_TO_SERVICE_FILES, { recursive: true });
 
     const job = new Job(info);
+    idToJob[info.id] = job;
     queue.addToWaitingForFiles(job, info.id);
 
     response.send('OK');
@@ -189,6 +191,17 @@ function execute() {
       archive.append(file.fileContent, { name: file.name });
     });
     await archive.finalize();
+  });
+
+  application.post('/terminaterun', async (request, response) => {
+    const ID = request.body.id;
+    const job = idToJob[ID];
+    console.log('Kill request for ' + ID + ' applied.');
+    try {
+      job.kill();
+    } catch (error) {
+      console.error(error);
+    }
   });
 }
 

@@ -66,6 +66,12 @@ module.exports = class Queue {
     delete this.#idToIsWaitingFiles[id];
   }
 
+  get(id) {
+    for (let i = 0; i < this.#queue.length; i++) {
+
+    }
+  }
+
   addToWaitingForFiles(job, id) {
     console.log('Registered service run as waiting for files: ' + id);
     this.#idToIsWaitingFiles[id] = job; 
