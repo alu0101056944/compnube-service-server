@@ -54,6 +54,7 @@ module.exports = class Job {
    */
   async execute(finishedCallback) {
     this.#executionStatus = 'Executing';
+    this.#sendUpdate();
 
     const EXECUTABLE_PATH =
         `serviceFiles/${this.#info.id}/${this.#info.config.binaryName}`;
