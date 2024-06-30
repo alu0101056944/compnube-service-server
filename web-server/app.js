@@ -16,7 +16,7 @@
 const express = require('express');
 const path = require('path');
 const process = require('process');
-const { readdir, rm, mkdir, access, readFile, access } = require('fs/promises');
+const { readdir, rm, mkdir, access, readFile } = require('fs/promises');
 const { mkdirSync, constants } = require('fs');
 
 const cors = require('cors');
