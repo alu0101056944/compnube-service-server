@@ -32,7 +32,7 @@ module.exports = class Job {
   constructor(info) {
     this.#info = info;
     this.#childProcess = null;
-    this.#executionStatus = 'execution pending';
+    this.#executionStatus = 'Job created, execution pending';
     this.#timesCalledForTerminate = 0;
 
     let cli = this.#info.config.cli;

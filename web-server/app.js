@@ -44,25 +44,6 @@ async function execute() {
   application.use(express.json());
   application.use(cors());
 
-  // tell the origins to check pending execution statuses in case the last
-  // session ended in crash.
-  JOBS_EXECUTED = await readFile('./src/jobs_executed.json', 'utf8');
-  jobsExecuted = JSON.parse(JOBS_EXECUTED);
-  originAddressToRuns = {}
-  for (const run of jobsExecuted.runs) {
-    originAddressToRuns[run.originAddress] ??= [];
-    originAddressToRuns[run.originAddress].push(run.id);
-  }
-  for (const originAddress of Object.getOwnPropertyNames(originAddressToRuns)) {
-    await fetch(`http://${originAddress}/executionstatecheck`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(originAddressToRuns[originAddress])
-    });
-  }
-
   const queue = new Queue();
   const idToJob = {};
 
@@ -223,8 +204,6 @@ async function execute() {
 
   application.post('/terminaterun', async (request, response) => {
     const ID = request.body.id;
-    console.log('id: ' + request.body.id);
-    console.log(idToJob);
     const job = idToJob[ID];
     console.log('Kill request for ' + ID + ' applied.');
     try {
@@ -232,6 +211,17 @@ async function execute() {
     } catch (error) {
       console.error(error);
     }
+  });
+
+  application.post('/executionstatecheck', async (request, response) => {
+    const allIdPotentiallyIncorrect = request.body.ids;
+    const allActuallyIncorrectId = [];
+    for (const idPotentiallyIncorrect of allIdPotentiallyIncorrect) {
+      if (!idToJob[idPotentiallyIncorrect]) {
+        allActuallyIncorrectId.push(idPotentiallyIncorrect);
+      }
+    }
+    response.json({ incorrectIds: allActuallyIncorrectId });
   });
 }
 
