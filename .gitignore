@@ -1,3 +1,6 @@
+serviceFiles/*
+!serviceFiles/README.md
+
 # Logs
 logs
 *.log

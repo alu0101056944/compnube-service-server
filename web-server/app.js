@@ -16,8 +16,8 @@
 const express = require('express');
 const path = require('path');
 const process = require('process');
-const { readdir, rm, mkdir, access, readFile } = require('fs/promises');
-const { mkdirSync } = require('fs');
+const { readdir, rm, mkdir, access, readFile, access } = require('fs/promises');
+const { mkdirSync, constants } = require('fs');
 
 const cors = require('cors');
 const multer = require('multer');
@@ -78,9 +78,27 @@ function execute() {
     response.send('OK');
   });
 
-  application.post('/pushinputfiles', upload.array('files', 20),
+  application.post('/pushinputfiles',
+      upload.array('files', 20),
+      async (request, response, next) => {
+        const files = request.files;
+        const id = request.headers['x-service-id'];
+        const PATH = path.join(config.serviceFilesPath, id);
+      
+        try {
+          // Wait for all files to be accessible
+          await Promise.all(files.map(file => 
+            access(path.join(PATH, file.filename), constants.F_OK)
+          ));
+          next();
+        } catch (error) {
+          console.error('Error ensuring all files are saved:', error);
+          response.status(500).send('Error processing files');
+        }
+      },
       async (request, response) => {
         const id = request.headers['x-service-id'];
+        console.log('req.files: ' , request.files);
         queue.start(id);
         response.send(`File(s) uploaded successfully! Execution starts now.`);
       });
