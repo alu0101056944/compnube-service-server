@@ -12,17 +12,21 @@ const { chmod } = require('fs/promises');
 
 const config = require('./config.js');
 
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 
 module.exports = class Job {
   /** @constant @private **/ 
   #info = undefined;
   #command = undefined;
+  #updateQueue = undefined;
   
   /** @private  */
   #executionStatus = undefined;
   #childProcess = undefined;
   #timesCalledForTerminate = undefined;
+  #stdout = undefined;
+  #isSendingUpdate = undefined;
+
 
   /**
    * 
@@ -34,6 +38,9 @@ module.exports = class Job {
     this.#childProcess = null;
     this.#executionStatus = 'Job created, execution pending';
     this.#timesCalledForTerminate = 0;
+    this.#stdout = '';
+    this.#updateQueue = [];
+    this.#isSendingUpdate = false;
 
     let cli = this.#info.config.cli;
     for (const cliArgName of Object.getOwnPropertyNames(this.#info.cliArgs)) {
@@ -54,7 +61,7 @@ module.exports = class Job {
    */
   async execute(finishedCallback) {
     this.#executionStatus = 'Executing';
-    this.#sendUpdate();
+    this.#processUpdateIntoUpdateQueue();
 
     const EXECUTABLE_PATH =
         `serviceFiles/${this.#info.id}/${this.#info.config.binaryName}`;
@@ -65,34 +72,36 @@ module.exports = class Job {
     }
 
     const options = {
-      cwd: config.serviceFilesPath + this.#info.id + '/'
+      cwd: config.serviceFilesPath + this.#info.id + '/',
+      shell: true
     };
 
     console.log('Execution of ' + this.#info.id + ' started.');
-    this.#childProcess = exec(`bash -c "${this.#command}"`, options,
-        (error, stdout, stderr) => {
-          if (error) {
-            console.error(`Error: ${error.message}`);
-            this.#executionStatus = 'execution failed';
-            this.#sendUpdate();
-            finishedCallback(this.#info.id);
-            console.log('execution failed');
-            return;
-          }
-          if (stderr) {
-            console.error(`stderr: ${stderr}`);
-            this.#executionStatus = 'execution failed';
-            this.#sendUpdate();
-            finishedCallback(this.#info.id);
-            console.log('execution failed');
-            return;
-          }
-          console.log(`stdout: \n${stdout}`);
-          this.#executionStatus = 'Finished execution sucessfully';
-          this.#sendUpdate();
-          finishedCallback(this.#info.id);
-          console.log('Finished execution sucessfully');
-        });
+
+    this.#childProcess = spawn('bash', ['-c', `'${this.#command}'`], options);
+
+    this.#childProcess.stdout.on('data', (data) => {
+      this.#stdout += data.toString();
+      this.#processUpdateIntoUpdateQueue();
+    });
+
+    this.#childProcess.stderr.on('data', (data) => {
+      this.#stdout += data.toString();
+      this.#processUpdateIntoUpdateQueue();
+    });
+
+    this.#childProcess.on('close', (code) => {
+      if (code !== 0) {
+        console.error(`execution failed with code ${code}`);
+        this.#executionStatus = 'execution failed';
+      } else {
+        console.log('Finished execution successfully');
+        this.#executionStatus = 'Finished execution successfully';
+      }
+      console.log(this.#stdout);
+      this.#processUpdateIntoUpdateQueue();
+      finishedCallback(this.#info.id);
+    });
   }
 
   async kill() {
@@ -111,30 +120,73 @@ module.exports = class Job {
         console.log(`Killed service run ${this.#info.id} with code ${code} ` +
             `and signal ${signal}.`);
         this.#executionStatus = 'Terminated by user';
-        this.#sendUpdate()
+        this.#processUpdateIntoUpdateQueue();
         resolve();
       });
   
-      this.#childProcess.kill();
+      // negative PID = send signal to whole group not just the process.
+      process.kill(-this.#childProcess.pid, 'SIGTERM');
     });
   }
 
   // This is called when not all the required input files have been sucessfuly
   // sent.
   async abort() {
+    if (this.#childProcess) {
+      // If the process has started, kill it
+      try {
+        await this.kill();
+      } catch (error) {
+        console.error('Error killing ' + this.#info.id + ' during abort:',
+            error);
+      }
+    }
     this.#executionStatus = 'execution failed';
     await this.#sendUpdate();
   }
 
+  #processUpdateIntoUpdateQueue() {
+    this.#updateQueue.push({
+      executionState: this.#executionStatus,
+      id: this.#info.id,
+      stdout: this.#stdout,
+    });
+    this.#processUpdateQueue();
+  }
+
+  async #processUpdateQueue() {
+    if (this.#isSendingUpdate || this.#updateQueue.length === 0) {
+      return;
+    }
+
+    this.#isSendingUpdate = true;
+
+    while (this.#updateQueue.length > 0) {
+      try {
+        await this.#sendUpdate();
+      } catch (error) {
+        console.error('Failed to send update for ' + this.#info.id +
+            ': ', error);
+        break;
+      }
+    }
+
+    this.#isSendingUpdate = false;
+
+    // Check if more updates were queued while we were sending
+    if (this.#updateQueue.length > 0) {
+      this.#processUpdateQueue();
+    }
+  }
+
   // auxiliar method
   async #sendUpdate() {
-    fetch(`http://${this.#info.config.originAddress}/pushupdate/`, {
+    await fetch(`http://${this.#info.config.originAddress}/pushupdate/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ executionState: this.#executionStatus,
-        id: this.#info.id }),
+      body: JSON.stringify(this.#updateQueue.shift()),
     });
   }
 
