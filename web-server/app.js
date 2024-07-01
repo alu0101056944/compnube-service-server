@@ -138,7 +138,7 @@ async function execute() {
         }
 
         // move zip files up once to the root folder of ID
-        EXTRACTED_ZIP_PATH = `serviceFiles/${ID}/${ZIP_PATH.split('.')[0]}`;
+        const EXTRACTED_ZIP_PATH = `serviceFiles/${ID}/${ZIP_PATH.split('.')[0]}`;
         try {
           const allFile = await readdir(EXTRACTED_ZIP_PATH);
           for (filename of allFile) {
