@@ -63,6 +63,21 @@ async function execute() {
   });
   const upload = multer({ storage: storage });
 
+    // setup stream file storage.
+  const storage2 = multer.diskStorage({
+    destination: (request, file, cb) => {
+      const ID = request.headers['x-service-id'];
+      const STREAM_DESTINATION = path.resolve(`${config.serviceFilesPath}${ID}`,
+        request.heades['stream-destination']);
+      console.log('Stream destination: ' + STREAM_DESTINATION);
+      cb(null, STREAM_DESTINATION);
+    },
+    filename: (request, file, cb) => {
+      cb(null, file.originalname);
+    }
+  });
+  const upload2 = multer({ storage: storage2 });
+
   application.listen(application.get('port'), '0.0.0.0', function() {
     const DEFAULT_START_MESSAGE =
         'The server is running on http://<your machine IP addr>:';
@@ -252,6 +267,14 @@ async function execute() {
     }
     response.json({ allDeadId: allActuallyDeadId });
   });
+
+  application.post('/pushstreaminputfiles',
+    upload2.array('files', 20),
+    async (request, response) => {
+      const id = request.headers['x-service-id'];
+      response.send('File(s) uploaded successfully for ' + id +
+          '! Execution starts now.');
+    });
 }
 
 if (process.argv[1] === __filename) {

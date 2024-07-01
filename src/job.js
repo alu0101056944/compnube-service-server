@@ -123,11 +123,6 @@ module.exports = class Job {
         return;
       }
   
-      this.#childProcess.on('exit', (code, signal) => {
-        console.log(`Exitted service run ${this.#info.id} with code ${code} ` +
-            `and signal ${signal}.`);
-      });
-
       this.#childProcess.on('close', (code, signal) => {
         console.log(`Closed service run ${this.#info.id} with code ${code} ` +
             `and signal ${signal}.`);
