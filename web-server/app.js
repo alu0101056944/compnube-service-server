@@ -17,7 +17,7 @@ const express = require('express');
 const path = require('path');
 const process = require('process');
 const { readdir, rm, mkdir, access, readFile, writeFile } = require('fs/promises');
-const { mkdirSync, constants } = require('fs');
+const { mkdirSync, constants, readdir } = require('fs');
 
 const cors = require('cors');
 const multer = require('multer');
@@ -54,6 +54,13 @@ async function execute() {
       const PATH = config.serviceFilesPath + ID;
       console.log('Created ' + PATH + ' path for ' + ID + '.');
       mkdirSync(PATH, { recursive: true });
+
+      // Delete all existing files in the directory if it existed already
+      const files = fs.readdirSync(PATH);
+      for (const file of files) {
+        fs.unlinkSync(path.join(PATH, file));
+      }
+
       cb(null, PATH);
     },
     filename: (request, file, cb) => {
