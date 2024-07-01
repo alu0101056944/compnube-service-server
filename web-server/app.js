@@ -68,7 +68,7 @@ async function execute() {
     destination: (request, file, cb) => {
       const ID = request.headers['x-service-id'];
       const STREAM_DESTINATION = path.resolve(`${config.serviceFilesPath}${ID}`,
-        request.heades['stream-destination']);
+        request.headers['stream-destination']);
       console.log('Stream destination: ' + STREAM_DESTINATION);
       cb(null, STREAM_DESTINATION);
     },
