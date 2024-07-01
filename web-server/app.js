@@ -151,7 +151,7 @@ async function execute() {
             await fs.unlink(`${ZIP_PATH}/${filename}`);
           } else {
             console.log('Error when moving zip files up once to the root folder' +
-              ' of ' + ID + '.');
+              ' of ' + ID + '. Error: ' + error);
           }
         }
       },
