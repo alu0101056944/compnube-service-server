@@ -6,9 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "serve": "node web-server/app.js",
-    "cleanuplinux": "rmdir serviceFiles/* --ignore-fail-on-non-empty",
-    "cleanupwindows": "rmdir -r serviceFiles/*"
-
+    "cleanup": "rm -rf serviceFiles/* && echo 'This is the folder that contains the working directories for the executions.' > serviceFiles/README.md"
   },
   "type": "commonjs",
   "keywords": [],

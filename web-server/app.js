@@ -16,8 +16,8 @@
 const express = require('express');
 const path = require('path');
 const process = require('process');
-const { readdir, rm, mkdir, access, readFile, writeFile } = require('fs/promises');
-const { mkdirSync, constants, readdir } = require('fs');
+const { readdir, rm, mkdir, access, readFile } = require('fs/promises');
+const { mkdirSync, constants, readdirSync, unlinkSync } = require('fs');
 
 const cors = require('cors');
 const multer = require('multer');
@@ -52,15 +52,6 @@ async function execute() {
     destination: (request, file, cb) => {
       const ID = request.headers['x-service-id'];
       const PATH = config.serviceFilesPath + ID;
-      console.log('Created ' + PATH + ' path for ' + ID + '.');
-      mkdirSync(PATH, { recursive: true });
-
-      // Delete all existing files in the directory if it existed already
-      const files = fs.readdirSync(PATH);
-      for (const file of files) {
-        fs.unlinkSync(path.join(PATH, file));
-      }
-
       cb(null, PATH);
     },
     filename: (request, file, cb) => {
@@ -79,8 +70,25 @@ async function execute() {
     const info = request.body;
 
     // create the serviceFiles folder
-    const PATH_TO_SERVICE_FILES = config.serviceFilesPath + info.id;
-    await mkdir(PATH_TO_SERVICE_FILES, { recursive: true });
+    const ID = info.id;
+    const PATH = config.serviceFilesPath + ID;
+
+    try {
+      console.log('Readying up ' + PATH + ' path for ' + ID + '.');
+      await mkdir(PATH, { recursive: true });
+
+      // Delete all existing files in the directory if it existed already
+      const files = readdirSync(PATH);
+      console.log('Could sucessfully read ' + ID + '\'s directory.');
+      for (const file of files) {
+        console.log('Deleted ' + file + ' file as part of the readdying up' +
+            ' process for ' + ID + '.');
+        unlinkSync(path.join(PATH, file));
+      }
+    } catch (error) {
+      console.error('Could not ready up the directory for ' + ID + '. ' +
+        'Error: ' + error);
+    }
 
     const job = new Job(info);
     idToJob[info.id] = job;
@@ -96,6 +104,7 @@ async function execute() {
         const id = request.headers['x-service-id'];
         const PATH = path.join(config.serviceFilesPath, id);
         try {
+          console.log('Waiting for files to be available for ' + id);
           // Wait for all files to be accessible
           await Promise.all(files.map(file => 
             access(path.join(PATH, file.filename), constants.F_OK)
@@ -103,8 +112,12 @@ async function execute() {
           console.log('File transfers for ' + id + ' finished.')
           next();
         } catch (error) {
-          console.error('Error ensuring all files are saved:', error);
-          response.status(500).send('Error processing files');
+          console.error('Error ensuring all files are saved for ' + id + ':',
+              error);
+          console.log('Abort job ' + id + '.');
+          await idToJob[id].abort();
+          response.status(500).send('Error processing files for ' + id +
+              '. Aborted job.');
         }
       },
       async (request, response) => {

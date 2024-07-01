@@ -44,7 +44,7 @@ module.exports = class Job {
     cli = cli.replace('{binary}', this.#info.config.binaryName);
     this.#command = cli;
 
-    console.log('Command to execute: ' + this.#command);
+    console.log('Command to execute for ' + this.#info.id + ': ' + this.#command);
   }
 
   /**
@@ -76,6 +76,7 @@ module.exports = class Job {
             this.#executionStatus = 'execution failed';
             this.#sendUpdate();
             finishedCallback(this.#info.id);
+            console.log('execution failed');
             return;
           }
           if (stderr) {
@@ -83,12 +84,14 @@ module.exports = class Job {
             this.#executionStatus = 'execution failed';
             this.#sendUpdate();
             finishedCallback(this.#info.id);
+            console.log('execution failed');
             return;
           }
           console.log(`stdout: \n${stdout}`);
           this.#executionStatus = 'Finished execution sucessfully';
           this.#sendUpdate();
           finishedCallback(this.#info.id);
+          console.log('Finished execution sucessfully');
         });
   }
 
@@ -114,6 +117,13 @@ module.exports = class Job {
   
       this.#childProcess.kill();
     });
+  }
+
+  // This is called when not all the required input files have been sucessfuly
+  // sent.
+  async abort() {
+    this.#executionStatus = 'execution failed';
+    await this.#sendUpdate();
   }
 
   // auxiliar method
