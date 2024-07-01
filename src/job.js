@@ -90,6 +90,11 @@ module.exports = class Job {
       this.#processUpdateIntoUpdateQueue();
     });
 
+    this.#childProcess.on('exit', (code, signal) => {
+      console.log(`Exited service run ${this.#info.id} with code ${code} ` +
+          `and signal ${signal}.`);
+    });
+
     this.#childProcess.on('close', (code) => {
       if (code !== 0) {
         console.error(`execution failed with code ${code}`);
@@ -116,8 +121,13 @@ module.exports = class Job {
         return;
       }
   
+      this.#childProcess.on('exit', (code, signal) => {
+        console.log(`Exitted service run ${this.#info.id} with code ${code} ` +
+            `and signal ${signal}.`);
+      });
+
       this.#childProcess.on('close', (code, signal) => {
-        console.log(`Killed service run ${this.#info.id} with code ${code} ` +
+        console.log(`Closedd service run ${this.#info.id} with code ${code} ` +
             `and signal ${signal}.`);
         this.#executionStatus = 'Terminated by user';
         this.#processUpdateIntoUpdateQueue();
