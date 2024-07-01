@@ -112,7 +112,7 @@ module.exports = class Job {
   async kill() {
     ++this.#timesCalledForTerminate;
     return new Promise((resolve, reject) => {
-      if (!this.#executionStatus === 'Executing' || !this.#childProcess) {
+      if (this.#executionStatus !== 'Executing' || !this.#childProcess) {
         reject(new Error('No job process to kill or not in execution.'));
         return;
       }
@@ -127,7 +127,7 @@ module.exports = class Job {
       });
 
       this.#childProcess.on('close', (code, signal) => {
-        console.log(`Closedd service run ${this.#info.id} with code ${code} ` +
+        console.log(`Closed service run ${this.#info.id} with code ${code} ` +
             `and signal ${signal}.`);
         this.#executionStatus = 'Terminated by user';
         this.#processUpdateIntoUpdateQueue();
@@ -139,7 +139,7 @@ module.exports = class Job {
         process.kill(-this.#childProcess.pid, 'SIGTERM');
       } catch (error) {
         if (error.code === 'ESRCH') {
-          console.log(`Process ${this.#info.id} has already terminated.`);
+          console.log(`Job ${this.#info.id} has already terminated.`);
           resolve();
         } else {
           reject(error);
