@@ -16,8 +16,9 @@
 const express = require('express');
 const path = require('path');
 const process = require('process');
-const { readdir, rm, mkdir, access, readFile } = require('fs/promises');
-const { constants, readdirSync, unlinkSync } = require('fs');
+const { readdir, rm, mkdir, access, readFile, rename,
+    copyFile, unlink  } = require('fs/promises');
+const { constants } = require('fs');
 
 const cors = require('cors');
 const multer = require('multer');
@@ -80,12 +81,12 @@ async function execute() {
       await mkdir(PATH, { recursive: true });
 
       // Delete all existing files in the directory if it existed already
-      const files = readdirSync(PATH);
+      const files = await readdir(PATH);
       console.log('Could sucessfully read ' + ID + '\'s directory.');
       for (const file of files) {
         console.log('Deleted ' + file + ' file as part of the readdying up' +
             ' process for ' + ID + '.');
-        unlinkSync(path.join(PATH, file));
+        await unlink(path.join(PATH, file));
       }
     } catch (error) {
       console.error('Could not ready up the directory for ' + ID + '. ' +
@@ -101,7 +102,7 @@ async function execute() {
 
   application.post('/pushinputfiles',
       upload.array('files', 20),
-      async (request, response, next) => {
+      async (request, response) => {
         const files = request.files;
         const ID = request.headers['x-service-id'];
         const PATH = path.join(config.serviceFilesPath, ID);
@@ -122,20 +123,36 @@ async function execute() {
               '. Aborted job.');
         }
 
+        // unzip the input zip file if applicable
+        const ZIP_NAME = request.headers['zip-name'];
+        const ZIP_PATH = `serviceFiles/${ID}/${ZIP_NAME}`;
         try {
-
-          // unzip the input zip file if applicable
+          const directory = await unzipper.Open.file(ZIP_PATH);
           if (request.headers['has-zip']) {
-            const ZIP_NAME = request.headers['zip-name'];
-            const PATH = `serviceFiles/${ID}/${ZIP_NAME}`;
-            const directory = await unzipper.Open.file(PATH)
-            const PATH_DESTINATION = `serviceFiles/${ID}/`;
-            await directory.extract({ path: PATH_DESTINATION });
+            await directory.extract({ path: PATH });
           }
         } catch (error) {
           console.error('Error when trying to unzip the associated zip of ' +
             ID + '. Execution will not start. Error: ' + error);
           return;
+        }
+
+        // move zip files up once to the root folder of ID
+        try {
+          const allFile = await readdir(ZIP_PATH);
+          for (filename of allFile) {
+            await fs.rename(`${ZIP_PATH}/${filename}`, `${PATH}/${filename}`);
+          }
+        } catch (error) {
+          if (error.code === 'EXDEV') {
+            // If the rename fails with EXDEV (cross-device link error),
+            // fall back to copying and deleting
+            await copyFile(`${ZIP_PATH}/${filename}`, `${PATH}/${filename}`);
+            await fs.unlink(`${ZIP_PATH}/${filename}`);
+          } else {
+            console.log('Error when moving zip files up once to the root folder' +
+              ' of ' + ID + '.');
+          }
         }
       },
       async (request, response) => {
