@@ -124,8 +124,17 @@ module.exports = class Job {
         resolve();
       });
   
-      // negative PID = send signal to whole group not just the process.
-      process.kill(-this.#childProcess.pid, 'SIGTERM');
+      try {
+        // negative PID = send signal to whole group not just the process.
+        process.kill(-this.#childProcess.pid, 'SIGTERM');
+      } catch (error) {
+        if (error.code === 'ESRCH') {
+          console.log(`Process ${this.#info.id} has already terminated.`);
+          resolve();
+        } else {
+          reject(error);
+        }
+      }
     });
   }
 
