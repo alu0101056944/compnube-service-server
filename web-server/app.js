@@ -137,24 +137,24 @@ async function execute() {
           return;
         }
 
-        // move zip files up once to the root folder of ID
-        const EXTRACTED_ZIP_PATH = `serviceFiles/${ID}/${ZIP_PATH.split('.')[0]}`;
-        try {
-          const allFile = await readdir(EXTRACTED_ZIP_PATH);
-          for (filename of allFile) {
-            await fs.rename(`${EXTRACTED_ZIP_PATH}/${filename}`, `${PATH}/${filename}`);
-          }
-        } catch (error) {
-          if (error.code === 'EXDEV') {
-            // If the rename fails with EXDEV (cross-device link error),
-            // fall back to copying and deleting
-            await copyFile(`${EXTRACTED_ZIP_PATH}/${filename}`, `${PATH}/${filename}`);
-            await fs.unlink(`${EXTRACTED_ZIP_PATH}/${filename}`);
-          } else {
-            console.log('Error when moving zip files up once to the root folder' +
-              ' of ' + ID + '. Error: ' + error);
-          }
-        }
+        // // move zip files up once to the root folder of ID
+        // const EXTRACTED_ZIP_PATH = `serviceFiles/${ID}/${ZIP_PATH.split('.')[0]}`;
+        // try {
+        //   const allFile = await readdir(EXTRACTED_ZIP_PATH);
+        //   for (filename of allFile) {
+        //     await fs.rename(`${EXTRACTED_ZIP_PATH}/${filename}`, `${PATH}/${filename}`);
+        //   }
+        // } catch (error) {
+        //   if (error.code === 'EXDEV') {
+        //     // If the rename fails with EXDEV (cross-device link error),
+        //     // fall back to copying and deleting
+        //     await copyFile(`${EXTRACTED_ZIP_PATH}/${filename}`, `${PATH}/${filename}`);
+        //     await fs.unlink(`${EXTRACTED_ZIP_PATH}/${filename}`);
+        //   } else {
+        //     console.log('Error when moving zip files up once to the root folder' +
+        //       ' of ' + ID + '. Error: ' + error);
+        //   }
+        // }
       },
       async (request, response) => {
         const id = request.headers['x-service-id'];
