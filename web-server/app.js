@@ -17,11 +17,13 @@ const express = require('express');
 const path = require('path');
 const process = require('process');
 const { readdir, rm, mkdir, access, readFile } = require('fs/promises');
-const { mkdirSync, constants, readdirSync, unlinkSync } = require('fs');
+const { constants, readdirSync, unlinkSync } = require('fs');
 
 const cors = require('cors');
 const multer = require('multer');
 const archiver = require('archiver');
+
+const unzipper = require('unzipper');
 
 const Queue = require('../src/queue.js');
 const Job = require('../src/job.js');
@@ -101,23 +103,39 @@ async function execute() {
       upload.array('files', 20),
       async (request, response, next) => {
         const files = request.files;
-        const id = request.headers['x-service-id'];
-        const PATH = path.join(config.serviceFilesPath, id);
+        const ID = request.headers['x-service-id'];
+        const PATH = path.join(config.serviceFilesPath, ID);
         try {
-          console.log('Waiting for files to be available for ' + id);
+          console.log('Waiting for files to be available for ' + ID);
+
           // Wait for all files to be accessible
           await Promise.all(files.map(file => 
             access(path.join(PATH, file.filename), constants.F_OK)
           ));
-          console.log('File transfers for ' + id + ' finished.')
-          next();
+          console.log('File transfers for ' + ID + ' finished.')
         } catch (error) {
-          console.error('Error ensuring all files are saved for ' + id + ':',
+          console.error('Error ensuring all files are saved for ' + ID + ':',
               error);
-          console.log('Abort job ' + id + '.');
-          await idToJob[id].abort();
-          response.status(500).send('Error processing files for ' + id +
+          console.log('Abort job ' + ID + '.');
+          await idToJob[ID].abort();
+          response.status(500).send('Error processing files for ' + ID +
               '. Aborted job.');
+        }
+
+        try {
+
+          // unzip the input zip file if applicable
+          if (request.headers['has-zip']) {
+            const ZIP_NAME = request.headers['zip-name'];
+            const PATH = `serviceFiles/${ID}/${ZIP_NAME}`;
+            const directory = await unzipper.Open.file(PATH)
+            const PATH_DESTINATION = `serviceFiles/${ID}/`;
+            await directory.extract({ path: PATH_DESTINATION });
+          }
+        } catch (error) {
+          console.error('Error when trying to unzip the associated zip of ' +
+            ID + '. Execution will not start. Error: ' + error);
+          return;
         }
       },
       async (request, response) => {
