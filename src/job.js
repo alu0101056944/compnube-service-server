@@ -136,6 +136,8 @@ module.exports = class Job {
   
       try {
         // negative PID = send signal to whole group not just the process.
+        this.#childProcess.stdin.pause();
+        this.#childProcess.kill();
         process.kill(-this.#childProcess.pid, 'SIGTERM');
       } catch (error) {
         if (error.code === 'ESRCH') {
