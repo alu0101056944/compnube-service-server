@@ -14,6 +14,8 @@ const config = require('./config.js');
 
 const { spawn } = require('child_process');
 
+const kill = require('tree-kill');
+
 module.exports = class Job {
   /** @constant @private **/ 
   #info = undefined;
@@ -135,9 +137,7 @@ module.exports = class Job {
       });
   
       try {
-        // negative PID = send signal to whole group not just the process.
-        this.#childProcess.stdin.end();
-        this.#childProcess.kill('SIGKILL');
+        kill(this.#childProcess.pidf);
       } catch (error) {
         if (error.code === 'ESRCH') {
           console.log(`Job ${this.#info.id} (Process ` +
