@@ -138,17 +138,18 @@ async function execute() {
         }
 
         // move zip files up once to the root folder of ID
+        EXTRACTED_ZIP_PATH = `serviceFiles/${ID}/${ZIP_PATH.split('.')[0]}`;
         try {
-          const allFile = await readdir(ZIP_PATH);
+          const allFile = await readdir(EXTRACTED_ZIP_PATH);
           for (filename of allFile) {
-            await fs.rename(`${ZIP_PATH}/${filename}`, `${PATH}/${filename}`);
+            await fs.rename(`${EXTRACTED_ZIP_PATH}/${filename}`, `${PATH}/${filename}`);
           }
         } catch (error) {
           if (error.code === 'EXDEV') {
             // If the rename fails with EXDEV (cross-device link error),
             // fall back to copying and deleting
-            await copyFile(`${ZIP_PATH}/${filename}`, `${PATH}/${filename}`);
-            await fs.unlink(`${ZIP_PATH}/${filename}`);
+            await copyFile(`${EXTRACTED_ZIP_PATH}/${filename}`, `${PATH}/${filename}`);
+            await fs.unlink(`${EXTRACTED_ZIP_PATH}/${filename}`);
           } else {
             console.log('Error when moving zip files up once to the root folder' +
               ' of ' + ID + '. Error: ' + error);
