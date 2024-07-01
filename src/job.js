@@ -139,7 +139,8 @@ module.exports = class Job {
         process.kill(-this.#childProcess.pid, 'SIGTERM');
       } catch (error) {
         if (error.code === 'ESRCH') {
-          console.log(`Job ${this.#info.id} has already terminated.`);
+          console.log(`Job ${this.#info.id} (Process ` +
+              `${-this.#childProcess.pid}) has already terminated.`);
           resolve();
         } else {
           reject(error);
