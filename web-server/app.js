@@ -96,12 +96,19 @@ async function execute() {
       await mkdir(PATH, { recursive: true });
 
       // Delete all existing files in the directory if it existed already
-      const files = await readdir(PATH);
+      const files = await readdir(PATH, { withFileTypes: true });
       console.log('Could sucessfully read ' + ID + '\'s directory.');
       for (const file of files) {
-        console.log('Deleted ' + file + ' file as part of the readdying up' +
-            ' process for ' + ID + '.');
-        await unlink(path.join(PATH, file));
+        const FULL_PATH = path.join(PATH, entry.name);
+        if (file.isDirectory()) {
+          await fs.rmdir(FULL_PATH, { recursive: true });
+          console.log('Deleted directory: ' + FULL_PATH +
+            ' as part of the readying up process for ' + ID + '.');
+        } else {
+          await fs.unlink(FULL_PATH);
+          console.log('Deleted file: ' + FULL_PATH +
+            ' as part of the readying up process for ' + ID + '.');
+        }
       }
     } catch (error) {
       console.error('Could not ready up the directory for ' + ID + '. ' +
