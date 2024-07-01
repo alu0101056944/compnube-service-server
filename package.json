@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "serve": "node web-server/app.js"
+    "serve": "node web-server/app.js",
+    "cleanuplinux": "rmdir serviceFiles/* --ignore-fail-on-non-empty",
+    "cleanupwindows": "rmdir -r serviceFiles/*"
+
   },
   "type": "commonjs",
   "keywords": [],
