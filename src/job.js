@@ -137,7 +137,7 @@ module.exports = class Job {
       });
   
       try {
-        kill(this.#childProcess.pidf);
+        kill(this.#childProcess.pid);
       } catch (error) {
         if (error.code === 'ESRCH') {
           console.log(`Job ${this.#info.id} (Process ` +
