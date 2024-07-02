@@ -300,8 +300,6 @@ async function execute() {
     } catch (error) {
         console.error('Cannot read output files (RECOVER). Error occurred ' +
             'while reading the folder: ' + error);
-        response.status(500).send('Failed to read output files (RECOVER) path: ' +
-            error);
     }
 
     const archive = archiver('zip', {
