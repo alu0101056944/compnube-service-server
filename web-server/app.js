@@ -99,7 +99,7 @@ async function execute() {
       const files = await readdir(PATH, { withFileTypes: true });
       console.log('Could sucessfully read ' + ID + '\'s directory.');
       for (const file of files) {
-        const FULL_PATH = path.join(PATH, entry.name);
+        const FULL_PATH = path.join(PATH, file.name);
         if (file.isDirectory()) {
           await fs.rmdir(FULL_PATH, { recursive: true });
           console.log('Deleted directory: ' + FULL_PATH +
