@@ -51,6 +51,7 @@ module.exports = class Job {
     this.#stdout = '';
     this.#updateQueue = [];
     this.#isSendingUpdate = false;
+    this.#cpuUsages = [];
 
     let cli = this.#info.config.cli;
     for (const cliArgName of Object.getOwnPropertyNames(this.#info.cliArgs)) {
@@ -95,9 +96,11 @@ module.exports = class Job {
     // every second push cpu usage or stop checking if process is off.
     const cpuMonitorInterval = setInterval(async () => {
       try {
+        console.log('Measuring CPU load');
         const usage = await pidusage(this.#childProcess.pid);
         this.#cpuUsages.push(usage.cpu);
       } catch (error) {
+        console.log('Finished measuring CPU load or there was an error: ' + error);
         clearInterval(cpuMonitorInterval);
       }
     }, 1000);
@@ -128,7 +131,6 @@ module.exports = class Job {
             return sum + value;
           }, 0)
           / this.#cpuUsages.length).toFixed(2);
-
 
       if (code !== 0) {
         console.error(`execution failed with code ${code}`);
