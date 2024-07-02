@@ -104,7 +104,7 @@ async function execute() {
           console.log('Deleted directory: ' + FULL_PATH +
             ' as part of the readying up process for ' + ID + '.');
         } else {
-          await fs.unlink(FULL_PATH);
+          await unlink(FULL_PATH);
           console.log('Deleted file: ' + FULL_PATH +
             ' as part of the readying up process for ' + ID + '.');
         }
