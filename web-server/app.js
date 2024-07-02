@@ -148,8 +148,8 @@ async function execute() {
         const ZIP_NAME = request.headers['zip-name'];
         const ZIP_PATH = `serviceFiles/${ID}/${ZIP_NAME}`;
         try {
-          const directory = await unzipper.Open.file(ZIP_PATH);
           if (request.headers['has-zip'] === 'true') {
+            const directory = await unzipper.Open.file(ZIP_PATH);
             await directory.extract({ path: PATH });
           }
           next();
