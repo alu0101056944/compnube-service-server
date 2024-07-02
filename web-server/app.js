@@ -16,8 +16,7 @@
 const express = require('express');
 const path = require('path');
 const process = require('process');
-const { readdir, rm, mkdir, access, readFile, rename,
-    copyFile, unlink  } = require('fs/promises');
+const { readdir, rm, mkdir, access, readFile, rmdir  } = require('fs/promises');
 const { constants } = require('fs');
 
 const cors = require('cors');
@@ -101,7 +100,7 @@ async function execute() {
       for (const file of files) {
         const FULL_PATH = path.join(PATH, file.name);
         if (file.isDirectory()) {
-          await fs.rmdir(FULL_PATH, { recursive: true });
+          await rmdir(FULL_PATH, { recursive: true });
           console.log('Deleted directory: ' + FULL_PATH +
             ' as part of the readying up process for ' + ID + '.');
         } else {
@@ -150,7 +149,7 @@ async function execute() {
         const ZIP_PATH = `serviceFiles/${ID}/${ZIP_NAME}`;
         try {
           const directory = await unzipper.Open.file(ZIP_PATH);
-          if (request.headers['has-zip']) {
+          if (request.headers['has-zip'] === 'true') {
             await directory.extract({ path: PATH });
           }
           next();
