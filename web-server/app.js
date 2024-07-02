@@ -16,7 +16,7 @@
 const express = require('express');
 const path = require('path');
 const process = require('process');
-const { readdir, rm, mkdir, access, readFile, rmdir  } = require('fs/promises');
+const { readdir, rm, mkdir, access, readFile, rmdir, unlink  } = require('fs/promises');
 const { constants } = require('fs');
 
 const cors = require('cors');
@@ -281,6 +281,61 @@ async function execute() {
       response.send('File(s) uploaded successfully for ' + id +
           '! Execution starts now.');
     });
+
+  application.post('/recoverfiles', async (request, response) => {
+    const ID = request.body.id;
+
+    // attach the output files
+    const filesToZIP = [];
+    const PATH_TO_FILES = config.serviceFilesPath + ID;
+    try {
+      const allFile = await readdir(PATH_TO_FILES);
+      for (const filename of allFile) {
+        const FILE_PATH =
+            config.serviceFilesPath + ID + '/' + filename;
+        const FILE_CONTENT = await readFile(FILE_PATH);
+        filesToZIP.push({ fileContent: FILE_CONTENT, name: filename });
+      }
+      response.attachment(`${ID}.zip`);
+    } catch (error) {
+        console.error('Cannot read output files (RECOVER). Error occurred ' +
+            'while reading the folder: ' + error);
+        response.status(500).send('Failed to read output files (RECOVER) path: ' +
+            error);
+    }
+
+    const archive = archiver('zip', {
+      zlib: { level: 9 } // Set the compression level
+    });
+    archive.on('error', (err) => {
+      console.error('failed to compress output files for service run' + ID,
+          err);
+      response.status(500).send('Failed to compress to zip the output files ' +
+          '(for RECOVER).');
+    });
+    archive.on('warning', function(err) {
+      if (err.code === 'ENOENT') {
+        console.log('Warning: ' + err);
+      } else {
+        // throw error
+        throw err;
+      }
+    });
+    archive.on('end', function() {
+      console.log('Data has been drained (for RECOVER)');
+    });
+    archive.on('close', function() {
+      console.log(archive.pointer() + ' total bytes');
+      console.log('archiver has been finalized and the output file descriptor' +
+          ' has closed (for RECOVER).');
+    });
+    
+    archive.pipe(response);
+    filesToZIP.forEach(file => {
+      archive.append(file.fileContent, { name: file.name });
+    });
+    await archive.finalize();
+  });
 }
 
 if (process.argv[1] === __filename) {
