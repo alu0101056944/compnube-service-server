@@ -9,12 +9,14 @@
 'use strict';
 
 const { chmod } = require('fs/promises');
+const { performance } = require('perf_hooks');
 
 const config = require('./config.js');
 
 const { spawn } = require('child_process');
 
 const kill = require('tree-kill');
+const pidusage = require('pidusage');
 
 module.exports = class Job {
   /** @constant @private **/ 
@@ -29,6 +31,12 @@ module.exports = class Job {
   #stdout = undefined;
   #isSendingUpdate = undefined;
 
+  #cpuUsages = undefined;
+  #startTime = undefined;
+  #endTime = undefined;
+  #execTime = undefined;
+  #maxCpuLoad = undefined;
+  #avgCpuLoad = undefined;
 
   /**
    * 
@@ -65,6 +73,8 @@ module.exports = class Job {
     this.#executionStatus = 'Executing';
     this.#processUpdateIntoUpdateQueue();
 
+    this.#startTime = performance.now();
+
     const EXECUTABLE_PATH =
         `serviceFiles/${this.#info.id}/${this.#info.config.binaryName}`;
     try {
@@ -82,6 +92,16 @@ module.exports = class Job {
 
     this.#childProcess = spawn('bash', ['-c', `'${this.#command}'`], options);
 
+    // every second push cpu usage or stop checking if process is off.
+    const cpuMonitorInterval = setInterval(async () => {
+      try {
+        const usage = await pidusage(this.#childProcess.pid);
+        this.#cpuUsages.push(usage.cpu);
+      } catch (error) {
+        clearInterval(cpuMonitorInterval);
+      }
+    }, 1000);
+
     this.#childProcess.stdout.on('data', (data) => {
       this.#stdout += data.toString();
       this.#processUpdateIntoUpdateQueue();
@@ -98,6 +118,18 @@ module.exports = class Job {
     });
 
     this.#childProcess.on('close', (code) => {
+      clearInterval(cpuMonitorInterval);
+      this.#endTime = performance.now();
+
+      this.#execTime = (this.#endTime - this.#startTime) / 1000; // seconds
+      this.#maxCpuLoad = Math.max(...this.#cpuUsages).toFixed(2);
+      this.#avgCpuLoad = 
+          (this.#cpuUsages.reduce((sum, value) => {
+            return sum + value;
+          }, 0)
+          / this.#cpuUsages.length).toFixed(2);
+
+
       if (code !== 0) {
         console.error(`execution failed with code ${code}`);
         this.#executionStatus = 'execution failed';
@@ -166,6 +198,9 @@ module.exports = class Job {
       executionState: this.#executionStatus,
       id: this.#info.id,
       stdout: this.#stdout,
+      maxCpuLoad: this.#maxCpuLoad ?? null,
+      avgCpuLoad: this.#avgCpuLoad ?? null,
+      execTime: this.#execTime ?? null,
     });
     this.#processUpdateQueue();
   }
